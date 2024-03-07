@@ -14,7 +14,7 @@ _G.LogsDes = {
 _G.WebHook = {
     ["Enabled"] = true, -- เปิดการใช้งาน
     ["Url"] = "https://discord.com/api/webhooks/1215343573382205452/FCQQYSiSIckXgl6QVSJI0u-VQqd4SAdH5DDAV1-Y-CPr1vvGW0x-n-TpIaRbWy9fiwzb", -- ลิ้งค์เว็บฮุก
-    ["Delay"] = 60 -- วินาที
+    ["Delay"] = 5400 -- วินาที
 }
 _G.MainSettings = {
         ["EnabledHOP"] = true, -- เปิด HOP ( มันไม่มีอยู่ละใส่มาเท่ๆ )
