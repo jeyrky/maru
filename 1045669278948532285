@@ -47,8 +47,16 @@ local function getQuestNPC()
         {levelRange = {1, 10}, npc = "Starter NPC", enemy = "Bandit"},
         {levelRange = {10, 20}, npc = "Pirate NPC", enemy = "Pirate"},
         {levelRange = {20, 30}, npc = "Marine NPC", enemy = "Marine"},
-        -- Thêm các NPC và mức độ tương ứng
-        {levelRange = {690, 700}, npc = "Final Boss", enemy = "BossEnemy"},
+        {levelRange = {30, 50}, npc = "Saber NPC", enemy = "Saber"},
+        {levelRange = {50, 70}, npc = "Buggy NPC", enemy = "Buggy"},
+        {levelRange = {70, 100}, npc = "Brass NPC", enemy = "Brass"},
+        {levelRange = {100, 150}, npc = "Crocodile NPC", enemy = "Crocodile"},
+        {levelRange = {150, 200}, npc = "Hawkeye NPC", enemy = "Hawkeye"},
+        {levelRange = {200, 300}, npc = "Don Krieg NPC", enemy = "Don Krieg"},
+        {levelRange = {300, 400}, npc = "Luffy NPC", enemy = "Luffy"},
+        {levelRange = {400, 500}, npc = "Magellan NPC", enemy = "Magellan"},
+        {levelRange = {500, 600}, npc = "Akainu NPC", enemy = "Akainu"},
+        {levelRange = {600, 700}, npc = "Final Boss", enemy = "BossEnemy"},
     }
 
     for _, quest in pairs(questNPCs) do
