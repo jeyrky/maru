@@ -8,7 +8,7 @@ local stats = player:WaitForChild("Data")
 local level = stats:WaitForChild("Level")
 local points = stats:WaitForChild("Points")
 local humanoid = player.Character:WaitForChild("Humanoid")
-local flying = true -- Khởi tạo chế độ bay là bật
+local flying = false -- Khởi tạo chế độ bay là tắt
 
 -- Hàm chọn phe hải tặc
 local function selectPirate()
@@ -26,7 +26,7 @@ local function toggleFly()
 
     if flying then
         while flying do
-            task.wait(0.1) -- Cập nhật vị trí mỗi 0.1 giây
+            task.wait(0.1)
             player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 200, 0) -- Tốc độ bay
         end
     else
