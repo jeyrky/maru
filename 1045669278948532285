@@ -8,24 +8,29 @@ local stats = player:WaitForChild("Data")
 local level = stats:WaitForChild("Level")
 local points = stats:WaitForChild("Points")
 local humanoid = player.Character:WaitForChild("Humanoid")
-local flying = true -- Bật bay tự động
+local flying = true -- Khởi tạo chế độ bay là bật
 
 -- Hàm chọn phe hải tặc
 local function selectPirate()
     local team = game:GetService("Teams"):FindFirstChild("Pirate")
     if team then
         player.Team = team
+        print("Đã chọn phe Hải Tặc!")
     end
 end
 
--- Hàm để bật bay
+-- Hàm để bật/tắt chế độ bay
 local function toggleFly()
-    humanoid.PlatformStand = true -- Ngăn cản rơi
-    local flySpeed = 200 -- Tốc độ bay 200m/s
+    flying = not flying
+    humanoid.PlatformStand = flying -- Ngăn cản rơi khi bay
 
-    while flying do
-        task.wait(0.1) -- Cập nhật vị trí mỗi 0.1 giây
-        player.Character.HumanoidRootPart.Velocity = Vector3.new(0, flySpeed, 0)
+    if flying then
+        while flying do
+            task.wait(0.1) -- Cập nhật vị trí mỗi 0.1 giây
+            player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 200, 0) -- Tốc độ bay
+        end
+    else
+        humanoid.PlatformStand = false -- Cho phép rơi khi tắt bay
     end
 end
 
@@ -109,8 +114,17 @@ local function moveToSecondSea()
     end
 end
 
--- Khởi động script
+-- Bắt đầu script
 selectPirate()
 toggleFly() -- Bật bay tự động
 spawn(autoAssignPoints)
 spawn(autoFarm)
+
+-- Phím tắt để bật/tắt bay (phím "E")
+local UserInputService = game:GetService("UserInputService")
+
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+    if input.KeyCode == Enum.KeyCode.E and not gameProcessedEvent then
+        toggleFly()
+    end
+end)
