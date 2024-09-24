@@ -1,5 +1,6 @@
-repeat task.wait() until game:IsLoaded() 
-repeat task.wait() until game.Players.LocalPlayer 
+repeat task.wait() until game:IsLoaded()
+repeat task.wait() until game.Players
+repeat task.wait() until game.Players.LocalPlayer
 repeat task.wait() until game.Players.LocalPlayer:FindFirstChild("PlayerGui")
 
 local player = game.Players.LocalPlayer
@@ -7,31 +8,29 @@ local stats = player:WaitForChild("Data")
 local level = stats:WaitForChild("Level")
 local points = stats:WaitForChild("Points")
 local humanoid = player.Character:WaitForChild("Humanoid")
+local flying = true -- Bật bay tự động
 
--- Cấu hình nhận nhiệm vụ
-local questNPCs = {
-    -- Sea 1
-    {levelRange = {1, 15}, npc = "Bandit Quest Giver", enemy = "Bandit"}, 
-    {levelRange = {15, 30}, npc = "Jungle Quest Giver", enemy = "Monkey"}, 
-    {levelRange = {30, 60}, npc = "Jungle Quest Giver", enemy = "Gorilla"}, 
-    {levelRange = {60, 75}, npc = "Desert Quest Giver", enemy = "Desert Bandit"}, 
-    {levelRange = {75, 90}, npc = "Desert Quest Giver", enemy = "Desert Officer"}, 
-    {levelRange = {90, 100}, npc = "Frozen Village Quest Giver", enemy = "Snow Bandit"}, 
-    {levelRange = {100, 120}, npc = "Frozen Village Quest Giver", enemy = "Snowman"}, 
-    {levelRange = {120, 150}, npc = "Marine Fortress Quest Giver", enemy = "Chief Petty Officer"}, 
-    {levelRange = {150, 200}, npc = "Skylands Quest Giver", enemy = "Sky Bandit"}, 
-    {levelRange = {200, 250}, npc = "Skylands Quest Giver", enemy = "Dark Master"}, 
-    {levelRange = {250, 300}, npc = "Prison Quest Giver", enemy = "Dangerous Prisoner"}, 
-    {levelRange = {300, 325}, npc = "Magma Village Quest Giver", enemy = "Military Soldier"}, 
-    {levelRange = {325, 375}, npc = "Magma Village Quest Giver", enemy = "Military Spy"}, 
-    {levelRange = {375, 400}, npc = "Underwater City Quest Giver", enemy = "Fishman Warrior"}, 
-    {levelRange = {400, 450}, npc = "Underwater City Quest Giver", enemy = "Fishman Commando"}, 
-    {levelRange = {450, 475}, npc = "Colosseum Quest Giver", enemy = "Gladiator"}, 
-    {levelRange = {475, 525}, npc = "Colosseum Quest Giver", enemy = "Royal Squad"}, 
-    {levelRange = {525, 550}, npc = "Colosseum Quest Giver", enemy = "Royal Soldier"}, 
-    {levelRange = {550, 625}, npc = "Fountain City Quest Giver", enemy = "Galley Pirate"}, 
-    {levelRange = {625, 700}, npc = "Fountain City Quest Giver", enemy = "Galley Captain"}, 
-}
+-- Hàm chọn phe hải tặc
+local function selectPirate()
+    local team = game:GetService("Teams"):FindFirstChild("Pirate")
+    if team then
+        player.Team = team
+    end
+end
+
+-- Hàm để bật bay
+local function toggleFly()
+    humanoid.PlatformStand = true -- Ngăn cản rơi
+    local flySpeed = 200 -- Tốc độ bay 200m/s
+
+    while flying do
+        task.wait(0.1) -- Cập nhật vị trí mỗi 0.1 giây
+        local direction = Vector3.new(0, 0, 0)
+
+        -- Di chuyển nhân vật
+        player.Character.HumanoidRootPart.Velocity = direction.Unit * flySpeed
+    end
+end
 
 -- Hàm tự động cộng điểm cho Melee
 local function autoAssignPoints()
@@ -44,6 +43,14 @@ end
 
 -- Hàm tìm NPC và nhiệm vụ dựa trên level hiện tại
 local function getQuestNPC()
+    local questNPCs = {
+        {levelRange = {1, 10}, npc = "Starter NPC", enemy = "Bandit"},
+        {levelRange = {10, 20}, npc = "Pirate NPC", enemy = "Pirate"},
+        {levelRange = {20, 30}, npc = "Marine NPC", enemy = "Marine"},
+        -- Thêm các NPC và mức độ tương ứng
+        {levelRange = {690, 700}, npc = "Final Boss", enemy = "BossEnemy"},
+    }
+
     for _, quest in pairs(questNPCs) do
         if level.Value >= quest.levelRange[1] and level.Value <= quest.levelRange[2] then
             return quest
@@ -98,6 +105,8 @@ local function moveToSecondSea()
     end
 end
 
--- Chạy cả hai hàm
+-- Khởi động script
+selectPirate()
+toggleFly() -- Bật bay tự động
 spawn(autoAssignPoints)
 spawn(autoFarm)
