@@ -25,10 +25,7 @@ local function toggleFly()
 
     while flying do
         task.wait(0.1) -- Cập nhật vị trí mỗi 0.1 giây
-        local direction = Vector3.new(0, 0, 0)
-
-        -- Di chuyển nhân vật
-        player.Character.HumanoidRootPart.Velocity = direction.Unit * flySpeed
+        player.Character.HumanoidRootPart.Velocity = Vector3.new(0, flySpeed, 0)
     end
 end
 
@@ -72,20 +69,19 @@ local function autoFarm()
     while task.wait(1) do
         local currentQuest = getQuestNPC()
 
-        if currentQuest and not player.PlayerGui.Main.Quest.Visible then
-            -- Nhận nhiệm vụ
+        if currentQuest then
             local questNPC = game:GetService("Workspace").NPCs:FindFirstChild(currentQuest.npc)
-            if questNPC then
+            if questNPC and not player.PlayerGui.Main.Quest.Visible then
+                -- Nhận nhiệm vụ
                 game:GetService("ReplicatedStorage").Remotes["Quest"]:InvokeServer(questNPC.Name)
+                print("Đã nhận nhiệm vụ từ: " .. currentQuest.npc)
             end
-        elseif currentQuest then
+
             -- Tìm và tiêu diệt quái
             for _, enemy in pairs(game:GetService("Workspace").Enemies:GetChildren()) do
                 if enemy.Name == currentQuest.enemy and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
                     -- Di chuyển đến quái và đứng trên đầu quái
-                    local enemyPos = enemy.HumanoidRootPart.Position
-                    local standPosition = enemyPos + Vector3.new(0, 3, 0) -- Đứng trên đầu quái
-                    humanoid:MoveTo(standPosition)
+                    player.Character.HumanoidRootPart.Position = enemy.HumanoidRootPart.Position + Vector3.new(0, 3, 0) -- Đứng trên đầu quái
                     task.wait(1) -- Chờ cho đến khi đến vị trí
 
                     -- Tấn công quái
