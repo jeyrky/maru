@@ -38,7 +38,7 @@ end
 local function autoAssignPoints()
     while task.wait(5) do
         if points.Value > 0 then
-            game:GetService("ReplicatedStorage").Remotes["AddPoint"]:InvokeServer("Melee", points.Value)
+            game:GetService("ReplicatedStorage").Remotes["AddPoint"]:InvokeServer("Melee")
         end
     end
 end
@@ -75,7 +75,7 @@ local function autoFarm()
         local currentQuest = getQuestNPC()
 
         if currentQuest then
-            local questNPC = game:GetService("Workspace").NPCs:FindFirstChild(currentQuest.npc)
+            local questNPC = game.Workspace:FindFirstChild(currentQuest.npc)
             if questNPC and not player.PlayerGui.Main.Quest.Visible then
                 -- Nhận nhiệm vụ
                 game:GetService("ReplicatedStorage").Remotes["Quest"]:InvokeServer(questNPC.Name)
@@ -83,7 +83,7 @@ local function autoFarm()
             end
 
             -- Tìm và tiêu diệt quái
-            for _, enemy in pairs(game:GetService("Workspace").Enemies:GetChildren()) do
+            for _, enemy in pairs(game.Workspace.Enemies:GetChildren()) do
                 if enemy.Name == currentQuest.enemy and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
                     -- Di chuyển đến quái và đứng trên đầu quái
                     player.Character.HumanoidRootPart.Position = enemy.HumanoidRootPart.Position + Vector3.new(0, 3, 0) -- Đứng trên đầu quái
@@ -105,9 +105,9 @@ end
 
 -- Hàm tự động chuyển qua Sea 2
 local function moveToSecondSea()
-    local secondSeaNPC = game:GetService("Workspace").NPCs:FindFirstChild("Military Detective") -- Tên NPC chuyển Sea
+    local secondSeaNPC = game.Workspace:FindFirstChild("Military Detective") -- Tên NPC chuyển Sea
     if secondSeaNPC then
-        humanoid:MoveTo(secondSeaNPC.HumanoidRootPart.Position)
+        humanoid:MoveTo(secondSeaNPC.Position)
         task.wait(5)
         game:GetService("ReplicatedStorage").Remotes["Dialogue"]:InvokeServer(secondSeaNPC)
         print("Đã chuyển qua Sea 2")
