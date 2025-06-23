@@ -1,103 +1,134 @@
-repeat task.wait() until game:IsLoaded()
-repeat task.wait() until game.Players
-repeat task.wait() until game.Players.LocalPlayer
-repeat task.wait() until game.Players.LocalPlayer:FindFirstChild("PlayerGui")
-repeat task.wait() until game.Players.LocalPlayer.PlayerGui:FindFirstChild("Main");
-_G.Team = "Pirate" -- Marine / Pirate
-getgenv().Script_Mode = "Kaitun_Script"
-_G.LogsDes = {
-    ["Enabled"] = true, -- เปิดการใช้งาน
-    ["SendAlias"] = true, -- เปิดการส่ง Alias
-    ["SendDescription"] = true, -- เปิดการส่ง Des
-    ["DelaySend"] = 5 -- วินาที
-}
-_G.WebHook = {
-    ["Enabled"] = true, -- เปิดการใช้งาน
-    ["Url"] = "", -- ลิ้งค์เว็บฮุก
-    ["Delay"] = 60 -- วินาที
-}
-_G.MainSettings = {
-        ["EnabledHOP"] = true, -- เปิด HOP ( มันไม่มีอยู่ละใส่มาเท่ๆ )
-        ['FPSBOOST'] = true, -- ภาพกาก
-        ["FPSLOCKAMOUNT"] = 60, -- จำนวน FPS
-        ['WhiteScreen'] = false, -- จอขาว
-        ['CloseUI'] = false, -- ปิด Ui
-        ["NotifycationExPRemove"] = false, -- ลบ ExP ที่เด้งตอนฆ่ามอน
-        ['AFKCheck'] = 150, -- ถ้ายืนนิ่งเกินวิที่ตั้งมันจะรีเกม
-    }
-_G.Fruits_Settings = { -- ตั้งค่าผล
-    ['Main_Fruits'] = {'Dough-Dough'}, -- ผลหลัก ถ้ายังไม่ใช่ค่าที่ตั้งมันจะกินจนกว่าจะใช่หรือซื้อ
-    ['Select_Fruits'] = {""} -- กินหรือซื้อตอนไม่มีผล
-}
-_G.Quests_Settings = { -- ตั้งค่าเควสหลักๆ
-    ['Rainbow_Haki'] = false,
-    ["MusketeerHat"] = false,
-    ["PullLever"] = false,
-    ['DoughQuests_Mirror'] = {
-        ['Enabled'] = false,
-        ['UseFruits'] = false
-    }        
-}
-_G.Races_Settings = { -- ตั้งค่าเผ่า
-    ['Race'] = {
-        ['EnabledEvo'] = false,
-        ["v2"] = false,
-        ["v3"] = false,
-        ["Races_Lock"] = {
-            ["Races"] = { -- Select Races U want
-                ["Mink"] = false,
-                ["Human"] = false,
-                ["Fishman"] = false
-            },
-            ["RerollsWhenFragments"] = 0 -- Random Races When Your Fragments is >= Settings
-        }
-    }
-}
-_G.Settings_Melee = { -- หมัดที่จะทำ
-    ['Superhuman'] = false,
-    ['DeathStep'] = false,
-    ['SharkmanKarate'] = false,
-    ['ElectricClaw'] = false,
-    ['DragonTalon'] = false,
-    ['Godhuman'] = false
-}
-_G.FarmMastery_Settings = {
-    ['Melee'] = false,
-    ['Sword'] = false,
-    ['DevilFruits'] = false,
-    ['Select_Swords'] = {
-        ["AutoSettings"] = false, -- ถ้าเปิดอันนี้มันจะเลือกดาบให้เองหรือฟาร์มทุกดาบนั่นเอง
-        ["ManualSettings"] = { -- ถ้าปรับ AutoSettings เป็น false มันจะฟาร์มดาบที่เลือกตรงนี้ ตัวอย่างข้างล่าง
-            "Saber",
-            "Buddy Sword"
-        }
-    }
-}
-_G.SwordSettings = { -- ดาบที่จะทำ
-    ['Saber'] = false,
-    ["Pole"] = false,
-    ['MidnightBlade'] = false,
-    ['Shisui'] = false,
-    ['Saddi'] = false,
-    ['Wando'] = false,
-    ['Yama'] = false,
-    ['Rengoku'] = false,
-    ['Canvander'] = false,
-    ['BuddySword'] = false,
-    ['TwinHooks'] = false,
-    ['HallowScryte'] = false,
-    ['TrueTripleKatana'] = false,
-    ['CursedDualKatana'] = false
-}
-_G.SharkAnchor_Settings = {
-    ["Enabled_Farm"] = false,
-}
-_G.GunSettings = { -- ปืนที่จะทำ
-    ['Kabucha'] = false,
-    ['SerpentBow'] = false,
-    ['SoulGuitar'] = false
-}
-getgenv().Key = "MARU-CTFZ-TPLE9-RJPE-Y7N0D-P703"
-getgenv().id = "1043498614112124938"
-getgenv().Script_Mode = "Kaitun_Script"
-loadstring(game:HttpGet("https://raw.githubusercontent.com/xshiba/MaruBitkub/main/Mobile.lua"))()
+-- ✅ AUTO MUA PET "Rare" – GUI + Trạng thái nút + Chạy mượt không lỗi
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local lp = Players.LocalPlayer
+local char = lp.Character or lp.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+local humanoid = char:WaitForChild("Humanoid")
+
+local holdTime = 4
+local followDistance = 1.2
+local checkInterval = 0.2
+
+-- 👉 PET chứa từ khóa sau sẽ được mua (test với Rare)
+local allowedKeywords = { "Rare" }
+
+-- ✅ Tọa độ cố định
+local startPos = Vector3.new(-410.59, -6.50, -134.74)
+local endPos = Vector3.new(-408.79, -6.50, 255.76)
+local autoRunning = false
+
+-- ✅ GUI tạo trong PlayerGui để đảm bảo hiển thị
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AutoPET_GUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = lp:WaitForChild("PlayerGui")
+
+local function createButton(text, posY)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 220, 0, 40)
+	btn.Position = UDim2.new(0, 10, 0, posY)
+	btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	btn.Text = text
+	btn.Parent = screenGui
+	btn.Font = Enum.Font.SourceSansBold
+	btn.TextSize = 20
+	btn.BorderSizePixel = 0
+	return btn
+end
+
+local startBtn = createButton("▶️ Bắt đầu", 100)
+
+-- 🧠 Kiểm tra tên PET có hợp lệ không
+local function isAllowedPet(name)
+	for _, word in ipairs(allowedKeywords) do
+		if string.lower(name):find(string.lower(word)) then
+			return true
+		end
+	end
+	return false
+end
+
+-- 🧲 Giữ phím E đúng 4s
+local function holdEOnPet(pet)
+	local root = pet.root
+	local model = pet.model
+	if not root or not model:IsDescendantOf(workspace) then return end
+	if model:FindFirstChild("Owner") or model:FindFirstChild("NameGui") then return end
+
+	local cash = lp:FindFirstChild("leaderstats") and lp.leaderstats:FindFirstChild("Cash")
+	if not cash then return end
+
+	local cashBefore = cash.Value
+	pcall(function() keypress(0x45) end)
+	local start = tick()
+
+	local followConn = RunService.RenderStepped:Connect(function()
+		if (hrp.Position - root.Position).Magnitude > followDistance then
+			humanoid:MoveTo(Vector3.new(root.Position.X, hrp.Position.Y, root.Position.Z))
+		else
+			humanoid:MoveTo(hrp.Position)
+		end
+	end)
+
+	while tick() - start < holdTime do
+		if not model:IsDescendantOf(workspace) then break end
+		wait(0.1)
+	end
+
+	pcall(function() keyrelease(0x45) end)
+	if followConn then followConn:Disconnect() end
+
+	local cashAfter = cash.Value
+	if cashAfter < cashBefore then
+		print("✅ MUA PET thành công.")
+	else
+		print("❌ Không mua được.")
+	end
+end
+
+-- 📍 Kiểm tra xem tọa độ có nằm giữa vùng không
+local function isInZone(pos)
+	if not startPos or not endPos then return false end
+	local minX, maxX = math.min(startPos.X, endPos.X), math.max(startPos.X, endPos.X)
+	local minZ, maxZ = math.min(startPos.Z, endPos.Z), math.max(startPos.Z, endPos.Z)
+	return pos.X >= minX and pos.X <= maxX and pos.Z >= minZ and pos.Z <= maxZ
+end
+
+-- 🔍 Tìm PET hợp lệ gần nhất
+local function findClosestPet()
+	local nearest, nearestDist = nil, math.huge
+	for _, label in ipairs(workspace:GetDescendants()) do
+		if label:IsA("TextLabel") and isAllowedPet(label.Text) then
+			local model = label:FindFirstAncestorOfClass("Model")
+			local root = model and model:FindFirstChildWhichIsA("BasePart")
+			if root and model:IsDescendantOf(workspace) and isInZone(root.Position) then
+				local dist = (hrp.Position - root.Position).Magnitude
+				if dist < nearestDist then
+					nearest = { model = model, root = root }
+					nearestDist = dist
+				end
+			end
+		end
+	end
+	return nearest
+end
+
+-- 🔁 Vòng lặp chính
+task.spawn(function()
+	while true do
+		wait(checkInterval)
+		if autoRunning then
+			local pet = findClosestPet()
+			if pet then holdEOnPet(pet) end
+		end
+	end
+end)
+
+-- 🎯 Gán nút chạy
+startBtn.MouseButton1Click:Connect(function()
+	autoRunning = not autoRunning
+	startBtn.Text = autoRunning and "⏹ Đang chạy..." or "▶️ Bắt đầu"
+end)
