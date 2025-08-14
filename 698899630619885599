@@ -1,139 +1,164 @@
---== GROW A GARDEN • HUNGER TURBO (NIHONZARU) ==--
--- Tự động DROP ↔ RECALL để ép pet đói nhanh nhờ reset/spawn-tick
--- Không UI, auto chạy ngay. Nhấn K để bật/tắt.
+--== GROW A GARDEN • HUNGER FORCE (AUTO DROP↔RECALL) ==--
+-- Ép pet đói nhanh nhờ reset/spawn-tick khi recall rồi thả lại liên tục.
+-- Ưu tiên GUID anh nhập; nếu trống sẽ tự tìm theo tên (Nihonzaru).
+-- Hotkey K: bật/tắt. Không UI.
 
 -- ===== CẤU HÌNH =====
 getgenv().CFG = {
-    MODE            = "TURBO",  -- "TURBO" | "SAFE"
-    CADENCE_TURBO   = 0.30,     -- giãn cách mỗi chu kỳ (giây) khi TURBO
-    CADENCE_SAFE    = 0.75,     -- giãn cách khi SAFE
-    BURST_PER_CYCLE = 2,        -- mỗi chu kỳ làm mấy nhịp drop↔recall
-    KEYWORD_NAME    = "Nihonzaru", -- lọc theo tên (để trúng con khỉ)
-    USE_GUIDS_ONLY  = false,    -- true: chỉ dùng GUIDs ở dưới
+    MODE            = "TURBO",    -- "TURBO" | "SAFE"
+    CADENCE_TURBO   = 0.30,       -- nhịp 1 vòng (giây) khi TURBO
+    CADENCE_SAFE    = 0.75,       -- nhịp khi SAFE
+    BURST_PER_CYCLE = 2,          -- số nhịp thả↔thu trong mỗi vòng
+    KEYWORD_NAME    = "Nihonzaru",-- lọc theo tên pet (khỉ)
+    USE_GUIDS_ONLY  = false,      -- true: chỉ dùng danh sách GUID bên dưới
+    VERBOSE_LOG     = true        -- in log nhẹ để biết đang chạy
 }
 
--- Nếu muốn khóa đích danh GUID con khỉ thì điền ở đây (giữ ngoặc nhọn):
+-- Điền GUID đích danh nếu cần (giữ ngoặc nhọn):
 getgenv().PET_GUIDS = {
-    -- "{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}",
+    -- "{47cdba55-dcbc-4f40-8ea5-f00cff81ca55}",
 }
 
--- ===== DỊCH VỤ =====
+-- ===== DỊCH VỤ / TIỆN ÍCH =====
 local RS        = game:GetService("ReplicatedStorage")
 local Players   = game:GetService("Players")
-local RunService= game:GetService("RunService")
 local UIS       = game:GetService("UserInputService")
 local LP        = Players.LocalPlayer
 
--- Tìm remote PetsService
-local PetsService = RS:FindFirstChild("PetsService") or RS:FindFirstChildWhichIsA("RemoteEvent", true)
-assert(PetsService, "[HUNGER] Không tìm thấy PetsService RemoteEvent")
-
-local function firePets(cmd, ...)
-    -- Bọc pcall + backoff khi bị throttle
-    local ok, err = pcall(function()
-        PetsService:FireServer(cmd, ...)
-    end)
-    return ok, err
+local function log(...)
+    if getgenv().CFG.VERBOSE_LOG then print("[HUNGER]", ...) end
 end
 
--- ==== LẤY DANH SÁCH GUID THEO TÊN ====
-local function collectGuidsByName(keyword)
-    -- Tùy game, inventory thường nằm ở LP hoặc trong RS; ta hỏi server bằng patterns phổ biến
-    -- Fallback: lấy từ PlayerData nếu có
-    local guids = {}
-
-    -- Cách 1: nhờ server trả list đang sở hữu (nếu game hỗ trợ)
-    -- Nhiều bản chỉ cần gọi EquipPet/UnequipPet bằng GUID sẵn có; nếu không có, ta đọc từ pets equipped trong workspace
-    -- Dò trong character/descendants xem có tag tên khớp (khi đang thả)
-    for _, d in ipairs(workspace:GetDescendants()) do
-        if typeof(d.Name) == "string" and d.Name:lower():find(keyword:lower()) then
-            -- Lần theo Attributes/Value để lấy GUID
-            local guid
-            for _, v in ipairs(d:GetDescendants()) do
-                if v:IsA("StringValue") and v.Name:lower():find("guid") then
-                    guid = v.Value
-                    break
-                end
-                if v:IsA("ObjectValue") and v.Name:lower():find("guid") then
-                    guid = tostring(v.Value)
-                    break
-                end
-            end
-            if guid and not table.find(guids, guid) then
-                table.insert(guids, guid)
+-- Tìm RemoteEvent điều khiển pet (tên có thể khác nhau giữa các bản)
+local function findPetsRemote()
+    local candidates = {}
+    local function push(x) if x and x:IsA("RemoteEvent") then table.insert(candidates, x) end end
+    push(RS:FindFirstChild("PetsService"))
+    push(RS:FindFirstChild("PetService"))
+    -- Dò sâu nếu không thấy ở gốc
+    if #candidates == 0 then
+        for _,d in ipairs(RS:GetDescendants()) do
+            if d:IsA("RemoteEvent") and (d.Name:lower():find("pet") or d.Name:lower():find("equip")) then
+                push(d)
             end
         end
     end
-    return guids
+    -- Ưu tiên cái tên giống PetsService
+    table.sort(candidates, function(a,b)
+        local sa = a.Name:lower():find("petsservice") and 1 or 0
+        local sb = b.Name:lower():find("petsservice") and 1 or 0
+        return sa > sb
+    end)
+    return candidates[1]
 end
 
--- Ưu tiên GUID do anh khai báo; nếu trống thì lọc theo tên
+local PetsRemote = findPetsRemote()
+assert(PetsRemote, "Không tìm thấy RemoteEvent điều khiển pet (PetsService).")
+
+local function firePets(cmd, ...)
+    local ok, err = pcall(function()
+        PetsRemote:FireServer(cmd, ...)
+    end)
+    if not ok then log("Fire fail:", tostring(err)) end
+    return ok
+end
+
+local function equip(g)   return firePets("EquipPet", g)   end
+local function unequip(g) return firePets("UnequipPet", g) end
+
+-- ==== THU THẬP GUID ====
+-- Cách 1: dùng GUID anh cung cấp
+-- Cách 2: tự tìm trong workspace theo KEYWORD_NAME (đọc GUID từ Value/Attribute)
+local function collectGuidsByName(keyword)
+    local found, set = {}, {}
+    keyword = (keyword or ""):lower()
+    for _, d in ipairs(workspace:GetDescendants()) do
+        if type(d.Name)=="string" and d.Name:lower():find(keyword) then
+            local guid
+            -- tìm StringValue / ObjectValue / Attribute có chữ "guid"
+            for _, v in ipairs(d:GetDescendants()) do
+                if v:IsA("StringValue") and v.Name:lower():find("guid") and #v.Value>20 then
+                    guid = v.Value; break
+                elseif v:IsA("ObjectValue") and v.Name:lower():find("guid") and v.Value then
+                    guid = tostring(v.Value); break
+                end
+            end
+            if not guid and d:GetAttribute then
+                for _, attrName in ipairs(d:GetAttributes and d:GetAttributes() or {}) do
+                    if tostring(attrName):lower():find("guid") then
+                        local val = d:GetAttribute(attrName)
+                        if type(val)=="string" and #val>20 then guid = val break end
+                    end
+                end
+            end
+            if guid and not set[guid] then
+                set[guid] = true
+                table.insert(found, guid)
+            end
+        end
+    end
+    return found
+end
+
 local TARGET_GUIDS = {}
 do
-    if getgenv().CFG.USE_GUIDS_ONLY and #getgenv().PET_GUIDS > 0 then
+    local cfg = getgenv().CFG
+    if cfg.USE_GUIDS_ONLY and #getgenv().PET_GUIDS > 0 then
         TARGET_GUIDS = getgenv().PET_GUIDS
     else
-        local byName = collectGuidsByName(getgenv().CFG.KEYWORD_NAME)
+        local auto = collectGuidsByName(cfg.KEYWORD_NAME)
         if #getgenv().PET_GUIDS > 0 then
-            -- gộp: dùng GUID anh điền + cái nào bắt được theo tên
-            local set = {}
-            for _, g in ipairs(getgenv().PET_GUIDS) do set[g]=true end
-            for _, g in ipairs(byName) do set[g]=true end
-            for g,_ in pairs(set) do table.insert(TARGET_GUIDS, g) end
+            local map = {}
+            for _,g in ipairs(getgenv().PET_GUIDS) do map[g]=true end
+            for _,g in ipairs(auto) do map[g]=true end
+            for g,_ in pairs(map) do table.insert(TARGET_GUIDS, g) end
         else
-            TARGET_GUIDS = (#byName>0) and byName or {}
+            TARGET_GUIDS = auto
         end
     end
 end
 
 if #TARGET_GUIDS == 0 then
-    warn("[HUNGER] Không tìm ra GUID nào cho '"..getgenv().CFG.KEYWORD_NAME.."' — vẫn chạy nhưng sẽ không tác động gì.")
+    log("Không tìm ra GUID theo tên '"..getgenv().CFG.KEYWORD_NAME.."'. Vẫn chạy được nếu anh điền PET_GUIDS.")
 end
+log("GUID target:", (#TARGET_GUIDS>0) and table.concat(TARGET_GUIDS,", ") or "(trống)")
 
--- ==== HÀM DROP/RECALL NHANH ====
-local function equip(g)   return firePets("EquipPet", g)   end
-local function unequip(g) return firePets("UnequipPet", g) end
-
+-- ==== NHỊP BURST ÉP ĐÓI ====
 local function burst_once()
-    -- 1) Drop tất cả
+    -- thả tất cả rồi thu tất cả trong 1 nhịp
     for _, g in ipairs(TARGET_GUIDS) do equip(g) end
-    -- 2) micro-yield để server kịp nhận (rất ngắn)
-    task.wait(0.03)
-    -- 3) Recall tất cả
+    task.wait(0.03) -- micro-yield cho server kịp nhận
     for _, g in ipairs(TARGET_GUIDS) do unequip(g) end
 end
 
--- ==== VÒNG LẶP THÍCH ỨNG ====
+-- ==== VÒNG LẶP CHÍNH (có backoff nhẹ nếu lag) ====
 local running = true
 UIS.InputBegan:Connect(function(io, gpe)
     if gpe then return end
     if io.KeyCode == Enum.KeyCode.K then
         running = not running
-        print( running and "[HUNGER] ▶ RUN" or "[HUNGER] ⏸ PAUSE" )
+        log(running and "▶ RUN" or "⏸ PAUSE")
     end
 end)
 
 task.defer(function()
-    local cadence = (getgenv().CFG.MODE=="TURBO") and getgenv().CFG.CADENCE_TURBO or getgenv().CFG.CADENCE_SAFE
+    local cfg = getgenv().CFG
+    local cadence = (cfg.MODE=="TURBO") and cfg.CADENCE_TURBO or cfg.CADENCE_SAFE
     local backoff = 0
-    print(string.format("[HUNGER] Start (%s) • cadence=%.2fs • burst=%d",
-        getgenv().CFG.MODE, cadence, getgenv().CFG.BURST_PER_CYCLE))
+    log(("Start %s • cadence=%.2fs • burst=%d"):format(cfg.MODE, cadence, cfg.BURST_PER_CYCLE))
 
     while true do
         if running and #TARGET_GUIDS > 0 then
             local ok_all = true
-            for i=1, getgenv().CFG.BURST_PER_CYCLE do
-                burst_once()
-                -- nếu server lag/throttle, cho nghỉ siêu ngắn giữa các burst
+            for i=1, cfg.BURST_PER_CYCLE do
+                if not burst_once() then ok_all = false end
                 task.wait(0.02)
             end
-            -- Nếu khung trước thấy lỗi throttle, tăng backoff nhẹ
-            if not ok_all then backoff = math.min(backoff + 0.10, 1.0) else backoff = math.max(backoff - 0.05, 0) end
+            if not ok_all then backoff = math.min(backoff + 0.10, 1.0)
+            else backoff = math.max(backoff - 0.05, 0) end
         end
-
-        -- Nhịp chính: cadence + backoff
-        local t = cadence + backoff
-        if t < 0.05 then t = 0.05 end
-        task.wait(t)
+        local sleep = cadence + backoff
+        if sleep < 0.05 then sleep = 0.05 end
+        task.wait(sleep)
     end
 end)
