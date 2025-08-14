@@ -1,5 +1,5 @@
 --== GROW A GARDEN • HUNGER FORCE (GUID-ONLY • MOBILE) ==--
--- Ép đói nhanh bằng DROP↔RECALL, chỉ dùng GUID anh cung cấp.
+-- Ép đói nhanh bằng DROP↔RECALL, chỉ dùng GUID anh cung cấp. 
 
 -- ===== CẤU HÌNH =====
 getgenv().CFG = {
