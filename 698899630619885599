@@ -1,12 +1,27 @@
---== GROW A GARDEN • HUNGER FORCE (MOBILE UI • SAFE INIT) ==--
+--== GROW A GARDEN • HUNGER FORCE (GUID-ONLY • MOBILE) ==--
+-- Ép đói nhanh bằng DROP↔RECALL, chỉ dùng GUID anh cung cấp.
 
 -- ===== CẤU HÌNH =====
-getgenv().CFG = getgenv().CFG or {
-  MODE="TURBO", CADENCE_TURBO=0.30, CADENCE_SAFE=0.80,
-  BURST_PER_CYCLE=2, KEYWORD_NAME="Nihonzaru",
-  USE_GUIDS_ONLY=false, VERBOSE_LOG=false
+getgenv().CFG = {
+  MODE="TURBO",            -- "TURBO" | "SAFE"
+  CADENCE_TURBO=0.30,      -- nhịp 1 vòng khi TURBO
+  CADENCE_SAFE =0.80,      -- nhịp khi SAFE
+  BURST_PER_CYCLE=2,       -- số nhịp drop↔recall / vòng
+  USE_GUIDS_ONLY=true,     -- ✅ chỉ dùng GUID list bên dưới
+  VERBOSE_LOG=false
 }
-getgenv().PET_GUIDS = getgenv().PET_GUIDS or { }
+
+-- ===== GUID ANH ĐƯA (giữ nguyên ngoặc nhọn) =====
+getgenv().PET_GUIDS = {
+  "{0381fd01-4682-4bfa-90ae-2645684b8ea9}",
+  "{28b2e147-85a0-4a67-a64b-28965d4510b2}",
+  "{594e64b3-1b33-4d06-aa9d-b305d65a5b91}",
+  "{5bc4886f-19b5-48bb-a77b-3506236d8a76}",
+  "{9f276be4-8618-47d4-84e0-56072a347b19}",
+  "{b9f8eb87-3232-4e22-a161-c2c3c36b8d1c}",
+  "{c56855ca-fcb2-4b94-b8ad-32901ccf27d9}",
+  "{d442f02f-805d-4773-b0d1-81453b65b58b}",
+}
 
 -- ===== DỊCH VỤ =====
 local RS=game:GetService("ReplicatedStorage")
@@ -15,30 +30,23 @@ local UIS=game:GetService("UserInputService")
 local SGCore=game:GetService("StarterGui")
 local LP=Players.LocalPlayer
 
+-- ===== UI (hiện ngay) =====
 local function parentGui()
-  local g
-  if syn and syn.protect_gui then
-    g = Instance.new("ScreenGui"); g.Name="HungerForceUI"; g.ResetOnSpawn=false
-    syn.protect_gui(g); g.Parent = gethui and (pcall(gethui) and gethui()) or game:GetService("CoreGui")
-    return g
-  end
-  if gethui then local ok,u=pcall(gethui); if ok and u then g=Instance.new("ScreenGui"); g.Name="HungerForceUI"; g.ResetOnSpawn=false; g.Parent=u; return g end end
-  local cg=game:GetService("CoreGui")
-  local pg=LP:FindFirstChildOfClass("PlayerGui") or LP:WaitForChild("PlayerGui",2)
-  g=Instance.new("ScreenGui"); g.Name="HungerForceUI"; g.ResetOnSpawn=false
-  g.Parent = (pcall(function() return cg.Parent end) and cg) or pg
-  return g
+  if gethui then local ok,u=pcall(gethui); if ok and u then return u end end
+  return game:GetService("CoreGui")
 end
+local gui=Instance.new("ScreenGui")
+gui.Name="HungerGUIDMobile"; gui.ResetOnSpawn=false; gui.Parent=parentGui()
 
--- ===== UI: TẠO TRƯỚC (để luôn thấy) =====
-local gui = parentGui()
-local frame = Instance.new("Frame", gui)
-frame.Name="Panel"; frame.Size=UDim2.new(0,280,0,178); frame.Position=UDim2.new(0,20,0,220)
+local frame=Instance.new("Frame",gui)
+frame.Size=UDim2.new(0,280,0,170); frame.Position=UDim2.new(0,20,0,220)
 frame.BackgroundColor3=Color3.fromRGB(22,22,26); frame.BorderSizePixel=0
 Instance.new("UICorner",frame).CornerRadius=UDim.new(0,14)
+
 local title=Instance.new("TextLabel",frame)
-title.Text="HUNGER FORCE (Mobile)"; title.Size=UDim2.new(1,-40,0,26); title.Position=UDim2.new(0,14,0,8)
+title.Text="HUNGER (GUID-ONLY)"; title.Size=UDim2.new(1,-40,0,26); title.Position=UDim2.new(0,14,0,8)
 title.BackgroundTransparency=1; title.Font=Enum.Font.GothamBold; title.TextSize=14; title.TextColor3=Color3.fromRGB(235,235,240)
+
 local closeBtn=Instance.new("TextButton",frame)
 closeBtn.Size=UDim2.new(0,24,0,24); closeBtn.Position=UDim2.new(1,-30,0,8); closeBtn.Text="✕"
 closeBtn.BackgroundTransparency=1; closeBtn.Font=Enum.Font.GothamBold; closeBtn.TextSize=16; closeBtn.TextColor3=Color3.fromRGB(240,120,120)
@@ -53,89 +61,70 @@ do local dragging,dragInput,startPos,startInputPos
   UIS.InputChanged:Connect(function(i) if i==dragInput and dragging then update(i) end end)
 end
 
-local statusLbl=Instance.new("TextLabel",frame)
-statusLbl.Size=UDim2.new(1,-28,0,16); statusLbl.Position=UDim2.new(0,14,0,26)
-statusLbl.BackgroundTransparency=1; statusLbl.Font=Enum.Font.Gotham; statusLbl.TextSize=12; statusLbl.TextColor3=Color3.fromRGB(190,198,210)
-statusLbl.Text="Khởi tạo..."
+local status=Instance.new("TextLabel",frame)
+status.Size=UDim2.new(1,-28,0,16); status.Position=UDim2.new(0,14,0,30)
+status.BackgroundTransparency=1; status.Font=Enum.Font.Gotham; status.TextSize=12; status.TextColor3=Color3.fromRGB(190,198,210)
+status.Text="Remote: nil • 8 GUID"
 
-local nameBox=Instance.new("TextBox",frame)
-nameBox.Size=UDim2.new(1,-28,0,28); nameBox.Position=UDim2.new(0,14,0,48)
-nameBox.PlaceholderText="Tên pet (vd: Nihonzaru)"; nameBox.Text=(getgenv().CFG.KEYWORD_NAME or "Nihonzaru")
-nameBox.Font=Enum.Font.Gotham; nameBox.TextSize=14; nameBox.TextColor3=Color3.fromRGB(240,240,245)
-nameBox.BackgroundColor3=Color3.fromRGB(34,34,40); nameBox.BorderSizePixel=0; Instance.new("UICorner",nameBox).CornerRadius=UDim.new(0,8)
+local row=Instance.new("Frame",frame)
+row.Size=UDim2.new(1,-28,0,36); row.Position=UDim2.new(0,14,0,58); row.BackgroundTransparency=1
 
-local row=Instance.new("Frame",frame); row.Size=UDim2.new(1,-28,0,36); row.Position=UDim2.new(0,14,0,86); row.BackgroundTransparency=1
-local btnStart=Instance.new("TextButton",row); btnStart.Size=UDim2.new(0.46,0,1,0); btnStart.Text="▶ Bắt đầu"
-btnStart.Font=Enum.Font.GothamBold; btnStart.TextSize=16; btnStart.TextColor3=Color3.fromRGB(235,235,240); btnStart.BackgroundColor3=Color3.fromRGB(56,164,90); Instance.new("UICorner",btnStart).CornerRadius=UDim.new(0,10)
-local btnMode=Instance.new("TextButton",row); btnMode.Size=UDim2.new(0.46,0,1,0); btnMode.Position=UDim2.new(0.54,0,0,0)
-btnMode.Text="TURBO"; btnMode.Font=Enum.Font.GothamBold; btnMode.TextSize=16; btnMode.TextColor3=Color3.fromRGB(235,235,240); btnMode.BackgroundColor3=Color3.fromRGB(80,95,210); Instance.new("UICorner",btnMode).CornerRadius=UDim.new(0,10)
+local btnStart=Instance.new("TextButton",row)
+btnStart.Size=UDim2.new(0.46,0,1,0); btnStart.Text="▶ Bắt đầu"
+btnStart.Font=Enum.Font.GothamBold; btnStart.TextSize=16; btnStart.TextColor3=Color3.fromRGB(235,235,240); btnStart.BackgroundColor3=Color3.fromRGB(56,164,90)
+Instance.new("UICorner",btnStart).CornerRadius=UDim.new(0,10)
 
-local btnScan=Instance.new("TextButton",frame); btnScan.Size=UDim2.new(1,-28,0,30); btnScan.Position=UDim2.new(0,14,0,128)
-btnScan.Text="Quét lại GUID theo tên"; btnScan.Font=Enum.Font.GothamBold; btnScan.TextSize=14; btnScan.TextColor3=Color3.fromRGB(235,235,240); btnScan.BackgroundColor3=Color3.fromRGB(52,52,60); Instance.new("UICorner",btnScan).CornerRadius=UDim.new(0,8)
+local btnMode=Instance.new("TextButton",row)
+btnMode.Size=UDim2.new(0.46,0,1,0); btnMode.Position=UDim2.new(0.54,0,0,0)
+btnMode.Text="TURBO"; btnMode.Font=Enum.Font.GothamBold; btnMode.TextSize=16; btnMode.TextColor3=Color3.fromRGB(235,235,240); btnMode.BackgroundColor3=Color3.fromRGB(80,95,210)
+Instance.new("UICorner",btnMode).CornerRadius=UDim.new(0,10)
 
-local btnFindRemote=Instance.new("TextButton",frame); btnFindRemote.Size=UDim2.new(1,-28,0,24); btnFindRemote.Position=UDim2.new(0,14,0,158)
-btnFindRemote.Text="Tìm Remote"; btnFindRemote.Font=Enum.Font.Gotham; btnFindRemote.TextSize=12; btnFindRemote.TextColor3=Color3.fromRGB(230,230,240); btnFindRemote.BackgroundColor3=Color3.fromRGB(40,45,70); Instance.new("UICorner",btnFindRemote).CornerRadius=UDim.new(0,8)
+local btnFind=Instance.new("TextButton",frame)
+btnFind.Size=UDim2.new(1,-28,0,30); btnFind.Position=UDim2.new(0,14,0,104)
+btnFind.Text="Tìm Remote"; btnFind.Font=Enum.Font.GothamBold; btnFind.TextSize=14; btnFind.TextColor3=Color3.fromRGB(235,235,240); btnFind.BackgroundColor3=Color3.fromRGB(52,52,60)
+Instance.new("UICorner",btnFind).CornerRadius=UDim.new(0,8)
+
+local hint=Instance.new("TextLabel",frame)
+hint.Size=UDim2.new(1,-28,0,20); hint.Position=UDim2.new(0,14,0,138); hint.BackgroundTransparency=1
+hint.Font=Enum.Font.Gotham; hint.TextSize=12; hint.TextColor3=Color3.fromRGB(160,170,190)
+hint.Text="B1: Tìm Remote • B2: ▶ Bắt đầu"
+
+local function notify(t,d) pcall(function() SGCore:SetCore("SendNotification",{Title="Hunger",Text=t,Duration=d or 3}) end) end
+local function setStatus(r,c) status.Text=("Remote: %s • %d GUID"):format(r or "nil", c or #getgenv().PET_GUIDS) end
 
 -- ===== LOGIC =====
 local running=false
-local TARGET_GUIDS={}
 local PetsRemote=nil
-
-local function setStatus(t) statusLbl.Text=t end
-local function notify(t,d) pcall(function() SGCore:SetCore("SendNotification",{Title="Hunger Force",Text=t,Duration=d or 3}) end) end
+local TARGET_GUIDS=getgenv().PET_GUIDS
 
 local function findPetsRemote()
   local cands={}
   local function push(x) if x and x:IsA("RemoteEvent") then table.insert(cands,x) end end
-  push(RS:FindFirstChild("PetsService")); push(RS:FindFirstChild("PetService"))
-  if #cands==0 then for _,d in ipairs(RS:GetDescendants()) do if d:IsA("RemoteEvent") and (d.Name:lower():find("pet") or d.Name:lower():find("equip")) then push(d) end end end
-  table.sort(cands,function(a,b) local sa=a.Name:lower():find("petsservice") and 1 or 0; local sb=b.Name:lower():find("petsservice") and 1 or 0; return sa>sb end)
+  push(RS:FindChild("PetsService")); push(RS:FindFirstChild("PetsService"))
+  push(RS:FindFirstChild("PetService"))
+  if #cands==0 then
+    for _,d in ipairs(RS:GetDescendants()) do
+      if d:IsA("RemoteEvent") and (d.Name:lower():find("pet") or d.Name:lower():find("equip")) then
+        table.insert(cands,d)
+      end
+    end
+  end
+  table.sort(cands,function(a,b)
+    local sa=a.Name:lower():find("petsservice") and 1 or 0
+    local sb=b.Name:lower():find("petsservice") and 1 or 0
+    return sa>sb
+  end)
   return cands[1]
 end
 
-local function firePets(cmd, ...) if not PetsRemote then return false,"no-remote" end
-  local ok,err=pcall(function() PetsRemote:FireServer(cmd, ...) end)
-  if not ok then return false,err end
-  return true
+local function firePets(cmd, ...)
+  if not PetsRemote then return false,"no-remote" end
+  return pcall(function() PetsRemote:FireServer(cmd, ...) end)
 end
-local function equip(g) return firePets("EquipPet",g) end
-local function unequip(g) return firePets("UnequipPet",g) end
-
-local function collectGuidsByName(keyword)
-  local found, set={}, {}
-  local kw=(keyword or ""):lower()
-  for _,d in ipairs(workspace:GetDescendants()) do
-    if type(d.Name)=="string" and d.Name:lower():find(kw) then
-      local guid
-      for _,v in ipairs(d:GetDescendants()) do
-        if v:IsA("StringValue") and v.Name:lower():find("guid") and #v.Value>20 then guid=v.Value break
-        elseif v:IsA("ObjectValue") and v.Name:lower():find("guid") and v.Value then guid=tostring(v.Value) break end
-      end
-      if not guid and d.GetAttributes then
-        local ok,attrs=pcall(function() return d:GetAttributes() end)
-        if ok then for k,v in pairs(attrs) do if tostring(k):lower():find("guid") and type(v)=="string" and #v>20 then guid=v break end end end
-      end
-      if guid and not set[guid] then set[guid]=true; table.insert(found,guid) end
-    end
-  end
-  return found
-end
-
-local function refreshTargets()
-  TARGET_GUIDS={}
-  local cfg=getgenv().CFG
-  if cfg.USE_GUIDS_ONLY and #getgenv().PET_GUIDS>0 then
-    TARGET_GUIDS=getgenv().PET_GUIDS
-  else
-    local auto=collectGuidsByName(cfg.KEYWORD_NAME)
-    if #getgenv().PET_GUIDS>0 then local map={} for _,g in ipairs(getgenv().PET_GUIDS) do map[g]=true end for _,g in ipairs(auto) do map[g]=true end for g,_ in pairs(map) do table.insert(TARGET_GUIDS,g) end
-    else TARGET_GUIDS=auto end
-  end
-  setStatus(string.format("Remote:%s • %d GUID", PetsRemote and PetsRemote.Name or "nil", #TARGET_GUIDS))
-end
+local function equip(g) firePets("EquipPet", g) end
+local function unequip(g) firePets("UnequipPet", g) end
 
 local function burst_once()
-  if #TARGET_GUIDS==0 or not PetsRemote then return end
   for _,g in ipairs(TARGET_GUIDS) do equip(g) end
   task.wait(0.03)
   for _,g in ipairs(TARGET_GUIDS) do unequip(g) end
@@ -145,7 +134,7 @@ end
 task.defer(function()
   local backoff=0
   while gui.Parent do
-    if running and #TARGET_GUIDS>0 and PetsRemote then
+    if running and PetsRemote then
       local cfg=getgenv().CFG
       for i=1,cfg.BURST_PER_CYCLE do burst_once(); task.wait(0.02) end
       backoff=math.max(backoff-0.05,0)
@@ -154,28 +143,22 @@ task.defer(function()
     end
     local cfg=getgenv().CFG
     local cadence=(cfg.MODE=="TURBO") and cfg.CADENCE_TURBO or cfg.CADENCE_SAFE
-    task.wait(math.max(0.05,cadence+backoff))
+    task.wait(math.max(0.05, cadence+backoff))
   end
 end)
 
 -- nút
-btnFindRemote.MouseButton1Click:Connect(function()
+btnFind.MouseButton1Click:Connect(function()
   PetsRemote=findPetsRemote()
-  if PetsRemote then notify("Đã tìm thấy Remote: "..PetsRemote.Name,2) else notify("Không tìm thấy Remote! Vào vườn, thả 1 pet rồi bấm lại.",4) end
-  refreshTargets()
-end)
-
-btnScan.MouseButton1Click:Connect(function()
-  getgenv().CFG.KEYWORD_NAME = nameBox.Text ~= "" and nameBox.Text or "Nihonzaru"
-  refreshTargets(); notify("Đã quét: "..tostring(#TARGET_GUIDS).." GUID",2)
+  setStatus(PetsRemote and PetsRemote.Name or "nil", #TARGET_GUIDS)
+  if PetsRemote then notify("Đã tìm thấy: "..PetsRemote.Name,2) else notify("Không tìm thấy Remote. Vào vườn, thả 1 pet rồi bấm lại.",4) end
 end)
 
 btnStart.MouseButton1Click:Connect(function()
   running = not running
   btnStart.Text = running and "⏸ Dừng" or "▶ Bắt đầu"
   btnStart.BackgroundColor3 = running and Color3.fromRGB(210,100,90) or Color3.fromRGB(56,164,90)
-  if running and (not PetsRemote) then notify("Chưa có Remote. Bấm 'Tìm Remote' trước.",3) end
-  if running and #TARGET_GUIDS==0 then notify("Chưa có GUID. Nhập tên pet rồi 'Quét lại'.",3) end
+  if running and not PetsRemote then notify("Chưa có Remote. Bấm 'Tìm Remote' trước.",3) end
 end)
 
 btnMode.MouseButton1Click:Connect(function()
@@ -184,8 +167,5 @@ btnMode.MouseButton1Click:Connect(function()
   else cfg.MODE="TURBO"; btnMode.Text="TURBO"; btnMode.BackgroundColor3=Color3.fromRGB(80,95,210) end
 end)
 
--- khởi động ban đầu
-PetsRemote=findPetsRemote()
-refreshTargets()
-setStatus(string.format("Ready • Remote:%s • %d GUID", PetsRemote and PetsRemote.Name or "nil", #TARGET_GUIDS))
-notify("UI đã bật. Bấm 'Tìm Remote' → 'Quét lại' → '▶ Bắt đầu'",6)
+-- init status
+setStatus(nil, #TARGET_GUIDS)
